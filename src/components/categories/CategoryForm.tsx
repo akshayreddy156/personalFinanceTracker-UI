@@ -20,6 +20,8 @@ import {
   RadioGroup,
   TextField,
 } from "@mui/material";
+import { useValidation } from "../../hooks/useValidation";
+import { CommonValidations } from "../../utils/validation";
 
 interface props {
   open: boolean;
@@ -41,6 +43,7 @@ export default function CategoryForm({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { showSnackbar } = useSnackbar();
+  const { validateFields, validateField, getError, hasError } = useValidation();
 
   useEffect(() => {
     if (category) {
@@ -54,6 +57,17 @@ export default function CategoryForm({
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
+    const isValid = validateFields({
+      categoryName: {
+        value: categoryData.categoryName,
+        rules: CommonValidations.simpleName,
+        displayName: "Category Name",
+      },
+    });
+
+    if (!isValid) {
+      return;
+    }
     setLoading(true);
 
     try {
@@ -62,10 +76,16 @@ export default function CategoryForm({
           categoryId: category.categoryId,
           ...categoryData,
         });
-        showSnackbar(response.message || "Category updated successfully", "success");
+        showSnackbar(
+          response.message || "Category updated successfully",
+          "success"
+        );
       } else {
         const response = await categoryService.createCategory(categoryData);
-        showSnackbar(response.message || "Category created successfully", "success");
+        showSnackbar(
+          response.message || "Category created successfully",
+          "success"
+        );
       }
       onSuccess();
       onClose();
@@ -84,7 +104,7 @@ export default function CategoryForm({
   return (
     <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
       <DialogTitle>{category ? "Edit Category" : "Add Category"}</DialogTitle>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <DialogContent>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -98,12 +118,20 @@ export default function CategoryForm({
             required
             margin="normal"
             value={categoryData.categoryName || ""}
-            onChange={(e) =>
+            onChange={(e) => {
               setCategoryData({
                 ...categoryData,
                 categoryName: e.target.value,
-              })
-            }
+              });
+              validateField(
+                "categoryName",
+                e.target.value,
+                CommonValidations.simpleName,
+                "Category Name"
+              );
+            }}
+            error={hasError("categoryName")}
+            helperText={getError("categoryName")}
           />
           <FormControl component="fieldset" sx={{ mb: 2 }}>
             <FormLabel component="legend">Type</FormLabel>

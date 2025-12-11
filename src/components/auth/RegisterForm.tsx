@@ -10,6 +10,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthProvider";
 import { useSnackbar } from "../../hooks/useSnackbar";
+import { useValidation } from "../../hooks/useValidation";
+import { ValidationRules, CommonValidations } from "../../utils/validation";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
 
 export default function RegisterForm() {
@@ -24,12 +26,43 @@ export default function RegisterForm() {
   const { register } = useAuth();
   const { showSnackbar } = useSnackbar();
   const navigate = useNavigate();
-  const registerData = { email, password, name, monthlyIncome };
+  const { validateFields, validateField, getError, hasError } = useValidation();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+
+    // Validate all fields before submitting
+    const isValid = validateFields({
+      name: {
+        value: name,
+        rules: CommonValidations.name,
+        displayName: "Name",
+      },
+      email: {
+        value: email,
+        rules: CommonValidations.email,
+        displayName: "Email",
+      },
+      password: {
+        value: password,
+        rules: CommonValidations.simplePassword,
+        displayName: "Password",
+      },
+      monthlyIncome: {
+        value: monthlyIncome,
+        rules: [ValidationRules.required(), ValidationRules.nonNegative()],
+        displayName: "Monthly Income",
+      },
+    });
+
+    if (!isValid) {
+      return;
+    }
+
     setLoading(true);
     try {
+      const registerData = { email, password, name, monthlyIncome };
       const message = await register(registerData);
       showSnackbar(message, "success");
       navigate("/dashboard");
@@ -41,7 +74,7 @@ export default function RegisterForm() {
     }
   };
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+    <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -53,7 +86,12 @@ export default function RegisterForm() {
         fullWidth
         label="Name"
         value={name}
-        onChange={(e) => setName(e.target.value)}
+        onChange={(e) => {
+          setName(e.target.value);
+          validateField("name", e.target.value, CommonValidations.name, "Name");
+        }}
+        error={hasError("name")}
+        helperText={getError("name")}
       />
       <TextField
         margin="normal"
@@ -63,6 +101,9 @@ export default function RegisterForm() {
         type="email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
+        onBlur={() => validateField("email", email, CommonValidations.email, "Email")}
+        error={hasError("email")}
+        helperText={getError("email")}
       />
       <TextField
         margin="normal"
@@ -71,7 +112,12 @@ export default function RegisterForm() {
         label="Password"
         type={showPassword ? "text" : "password"}
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          validateField("password", e.target.value, CommonValidations.password, "Password");
+        }}
+        error={hasError("password")}
+        helperText={getError("password")}
         slotProps={{
           input: {
             endAdornment: (
@@ -95,6 +141,14 @@ export default function RegisterForm() {
         type="number"
         value={monthlyIncome}
         onChange={(e) => setMonthlyIncome(Number(e.target.value))}
+        onBlur={() =>
+          validateField("monthlyIncome", monthlyIncome, [
+            ValidationRules.required(),
+            ValidationRules.nonNegative(),
+          ], "Monthly Income")
+        }
+        error={hasError("monthlyIncome")}
+        helperText={getError("monthlyIncome")}
       />
       <Button
         type="submit"

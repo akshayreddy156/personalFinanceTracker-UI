@@ -23,6 +23,8 @@ import {
   RadioGroup,
   TextField,
 } from "@mui/material";
+import { useValidation } from "../../hooks/useValidation";
+import { ValidationRules } from "../../utils/validation";
 
 interface props {
   open: boolean;
@@ -50,6 +52,8 @@ export default function TransactionForm({
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState("");
   const { showSnackbar } = useSnackbar();
+  const { validateFields, validateField, getError, hasError, clearAllErrors } =
+    useValidation();
 
   const fetchCategories = async () => {
     try {
@@ -63,25 +67,64 @@ export default function TransactionForm({
   };
 
   useEffect(() => {
-    fetchCategories();
-    if (transaction) {
-      // Format date from ISO 8601 to YYYY-MM-DD for date input
-      const formattedDate = transaction.date.split("T")[0];
+    if (open) {
+      fetchCategories();
+      clearAllErrors();
+      setError("");
 
-      setTransactionData({
-        type: transaction.type,
-        amount: transaction.amount,
-        categoryId: transaction.category.categoryId,
-        date: formattedDate,
-        description: transaction.description || "",
-      });
+      if (transaction) {
+        // Format date from ISO 8601 to YYYY-MM-DD for date input
+        const formattedDate = transaction.date.split("T")[0];
+
+        setTransactionData({
+          type: transaction.type,
+          amount: transaction.amount,
+          categoryId: transaction.category.categoryId,
+          date: formattedDate,
+          description: transaction.description || "",
+        });
+      } else {
+        // Reset form data for new transaction
+        setTransactionData({
+          type: AmountType.EXPENSE,
+          amount: 0,
+          categoryId: 0,
+          date: new Date().toISOString().split("T")[0],
+          description: "",
+        });
+      }
     }
-  }, [transaction]);
+  }, [open, transaction, clearAllErrors]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError("");
+    const isValid = validateFields({
+      type: {
+        value: transactionData.type,
+        rules: [ValidationRules.required()],
+        displayName: "Transaction Type",
+      },
+      amount: {
+        value: transactionData.amount,
+        rules: [ValidationRules.required(), ValidationRules.positive()],
+        displayName: "Amount",
+      },
+      categoryId: {
+        value: transactionData.categoryId,
+        rules: [ValidationRules.required()],
+        displayName: "Category",
+      },
+      date: {
+        value: transactionData.date,
+        rules: [ValidationRules.required()],
+        displayName: "Date",
+      },
+    });
+    if (!isValid) {
+      return;
+    }
+    setLoading(true);
     try {
       // Convert date from YYYY-MM-DD to LocalDateTime format (YYYY-MM-DDTHH:mm:ss)
       const dateTimeString = `${transactionData.date}T00:00:00`;
@@ -129,7 +172,7 @@ export default function TransactionForm({
       <DialogTitle>
         {transaction ? "Edit Transaction" : "Add Transaction"}
       </DialogTitle>
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={handleSubmit} noValidate>
         <DialogContent>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }}>
@@ -173,10 +216,18 @@ export default function TransactionForm({
               ) || null
             }
             onChange={(_, newValue) => {
+              const categoryId = newValue?.categoryId || 0;
               setTransactionData({
                 ...transactionData,
-                categoryId: newValue?.categoryId || 0,
+                categoryId,
               });
+              // Validate immediately after change
+              validateField(
+                "categoryId",
+                categoryId,
+                [ValidationRules.required()],
+                "Category"
+              );
             }}
             renderInput={(params) => (
               <TextField
@@ -184,6 +235,8 @@ export default function TransactionForm({
                 label="Select Category"
                 required
                 margin="normal"
+                error={hasError("categoryId")}
+                helperText={getError("categoryId")}
               />
             )}
           />
@@ -194,12 +247,20 @@ export default function TransactionForm({
             required
             margin="normal"
             value={transactionData.amount || ""}
-            onChange={(e) =>
+            onChange={(e) => {
               setTransactionData({
                 ...transactionData,
                 amount: e.target.value === "" ? 0 : Number(e.target.value),
-              })
-            }
+              });
+              validateField(
+                "amount",
+                e.target.value === "" ? 0 : Number(e.target.value),
+                [ValidationRules.required(), ValidationRules.positive()],
+                "Amount"
+              );
+            }}
+            error={hasError("amount")}
+            helperText={getError("amount")}
             slotProps={{
               htmlInput: { min: 0, step: "any" },
               inputLabel: { shrink: true },
@@ -218,6 +279,16 @@ export default function TransactionForm({
                 date: e.target.value,
               })
             }
+            onBlur={() =>
+              validateField(
+                "date",
+                transactionData.date,
+                [ValidationRules.required()],
+                "Date"
+              )
+            }
+            error={hasError("date")}
+            helperText={getError("date")}
             slotProps={{
               inputLabel: { shrink: true },
             }}

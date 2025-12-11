@@ -11,6 +11,8 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../context/AuthProvider";
 import { useSnackbar } from "../../hooks/useSnackbar";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { useValidation } from "../../hooks/useValidation";
+import { CommonValidations } from "../../utils/validation";
 
 export default function LoginForm() {
   const [email, setEmail] = useState("");
@@ -21,12 +23,30 @@ export default function LoginForm() {
   const { login } = useAuth();
   const { showSnackbar } = useSnackbar();
   const navigate = useNavigate();
+  const { validateFields, validateField, getError, hasError } = useValidation();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    const isValid = validateFields({
+      email: {
+        value: email,
+        rules: CommonValidations.email,
+        displayName: "Email",
+      },
+      password: {
+        value: password,
+        rules: CommonValidations.simplePassword,
+        displayName: "Password",
+      },
+    });
+
+    if (!isValid) {
+      return;
+    }
     setLoading(true);
-    const Credentials = { email, password };
     try {
+      const Credentials = { email, password };
       const message = await login(Credentials);
       showSnackbar(message, "success");
       navigate("/dashboard");
@@ -40,7 +60,7 @@ export default function LoginForm() {
   };
 
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
+    <Box component="form" onSubmit={handleSubmit} noValidate sx={{ mt: 1 }}>
       {error && (
         <Alert severity="error" sx={{ mb: 2 }}>
           {error}
@@ -55,7 +75,17 @@ export default function LoginForm() {
         type="email"
         autoComplete="email"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        onChange={(e) => {
+          setEmail(e.target.value);
+          validateField(
+            "email",
+            e.target.value,
+            CommonValidations.email,
+            "Email"
+          );
+        }}
+        error={hasError("email")}
+        helperText={getError("email")}
       />
       <TextField
         margin="normal"
@@ -65,7 +95,17 @@ export default function LoginForm() {
         type={showPassword ? "text" : "password"}
         autoComplete="current-password"
         value={password}
-        onChange={(e) => setPassword(e.target.value)}
+        onChange={(e) => {
+          setPassword(e.target.value);
+          validateField(
+            "password",
+            e.target.value,
+            CommonValidations.password,
+            "Password"
+          );
+        }}
+        error={hasError("password")}
+        helperText={getError("password")}
         slotProps={{
           input: {
             endAdornment: (
