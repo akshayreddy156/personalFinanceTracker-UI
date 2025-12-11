@@ -1,0 +1,253 @@
+import { useState, useEffect } from "react";
+import type { Category } from "../../types/category.types";
+import { AmountType } from "../../types/enums";
+import type {
+  Transaction,
+  CreateTransactionRequest,
+} from "../../types/transaction.types";
+import { categoryService } from "../../services/category.service";
+import { transactionService } from "../../services/transaction.service";
+import { useSnackbar } from "../../hooks/useSnackbar";
+import {
+  Alert,
+  Autocomplete,
+  Button,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  Radio,
+  RadioGroup,
+  TextField,
+} from "@mui/material";
+
+interface props {
+  open: boolean;
+  onClose: () => void;
+  onSuccess: () => void;
+  transaction?: Transaction;
+}
+
+export default function TransactionForm({
+  open,
+  onClose,
+  onSuccess,
+  transaction,
+}: props) {
+  const [transactionData, setTransactionData] =
+    useState<CreateTransactionRequest>({
+      type: AmountType.EXPENSE,
+      amount: 0,
+      categoryId: 0,
+      date: new Date().toISOString().split("T")[0],
+      description: "",
+    });
+
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState<boolean>(false);
+  const [error, setError] = useState("");
+  const { showSnackbar } = useSnackbar();
+
+  const fetchCategories = async () => {
+    try {
+      const data = await categoryService.getCategories();
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (error) {
+      console.error("Failed to fetch categories", error);
+      showSnackbar("Failed to fetch categories", "error");
+      setCategories([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchCategories();
+    if (transaction) {
+      // Format date from ISO 8601 to YYYY-MM-DD for date input
+      const formattedDate = transaction.date.split("T")[0];
+
+      setTransactionData({
+        type: transaction.type,
+        amount: transaction.amount,
+        categoryId: transaction.category.categoryId,
+        date: formattedDate,
+        description: transaction.description || "",
+      });
+    }
+  }, [transaction]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    try {
+      // Convert date from YYYY-MM-DD to LocalDateTime format (YYYY-MM-DDTHH:mm:ss)
+      const dateTimeString = `${transactionData.date}T00:00:00`;
+
+      const requestData = {
+        ...transactionData,
+        date: dateTimeString,
+      };
+
+      if (transaction) {
+        // Update existing transaction logic here
+        const response = await transactionService.updateTransaction(
+          transaction.transactionId,
+          requestData
+        );
+        showSnackbar(
+          response.message || "Transaction updated successfully",
+          "success"
+        );
+      } else {
+        const response = await transactionService.createTransaction(
+          requestData
+        );
+        showSnackbar(
+          response.message || "Transaction created successfully",
+          "success"
+        );
+      }
+      onSuccess();
+      onClose();
+    } catch (error: any) {
+      console.error("Failed to submit transaction", error);
+      const errorMessage =
+        error.response?.data?.errors?.exception ||
+        "Failed to submit transaction. Please try again.";
+      setError(errorMessage);
+      showSnackbar(errorMessage, "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle>
+        {transaction ? "Edit Transaction" : "Add Transaction"}
+      </DialogTitle>
+      <form onSubmit={handleSubmit}>
+        <DialogContent>
+          {error && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {error}
+            </Alert>
+          )}
+
+          {/* Transaction Type Radio Buttons */}
+          <FormControl component="fieldset" sx={{ mb: 2 }}>
+            <FormLabel component="legend">Type</FormLabel>
+            <RadioGroup
+              row
+              value={transactionData.type}
+              onChange={(e) =>
+                setTransactionData({
+                  ...transactionData,
+                  type: e.target.value as AmountType,
+                })
+              }
+            >
+              <FormControlLabel
+                value={AmountType.INCOME}
+                control={<Radio />}
+                label="Income 💰"
+              />
+              <FormControlLabel
+                value={AmountType.EXPENSE}
+                control={<Radio />}
+                label="Expense 💸"
+              />
+            </RadioGroup>
+          </FormControl>
+          <Autocomplete
+            options={categories}
+            getOptionLabel={(option) =>
+              `${option.categoryName} - ${option.type}`
+            }
+            value={
+              categories.find(
+                (cat) => cat.categoryId === transactionData.categoryId
+              ) || null
+            }
+            onChange={(_, newValue) => {
+              setTransactionData({
+                ...transactionData,
+                categoryId: newValue?.categoryId || 0,
+              });
+            }}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Select Category"
+                required
+                margin="normal"
+              />
+            )}
+          />
+          <TextField
+            label="Amount (₹)"
+            type="number"
+            fullWidth
+            required
+            margin="normal"
+            value={transactionData.amount || ""}
+            onChange={(e) =>
+              setTransactionData({
+                ...transactionData,
+                amount: e.target.value === "" ? 0 : Number(e.target.value),
+              })
+            }
+            slotProps={{
+              htmlInput: { min: 0, step: "any" },
+              inputLabel: { shrink: true },
+            }}
+          />
+          <TextField
+            label="Date"
+            type="date"
+            fullWidth
+            required
+            margin="normal"
+            value={transactionData.date}
+            onChange={(e) =>
+              setTransactionData({
+                ...transactionData,
+                date: e.target.value,
+              })
+            }
+            slotProps={{
+              inputLabel: { shrink: true },
+            }}
+          />
+
+          <TextField
+            label="Description"
+            fullWidth
+            multiline
+            rows={3}
+            margin="normal"
+            value={transactionData.description || ""}
+            onChange={(e) =>
+              setTransactionData({
+                ...transactionData,
+                description: e.target.value,
+              })
+            }
+          />
+        </DialogContent>
+
+        <DialogActions>
+          <Button onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" variant="contained" disabled={loading}>
+            {loading ? "Saving..." : transaction ? "Update" : "Add Transaction"}
+          </Button>
+        </DialogActions>
+      </form>
+    </Dialog>
+  );
+}
