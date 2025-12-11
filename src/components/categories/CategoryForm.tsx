@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, useMemo, type FormEvent } from "react";
 import type {
   CreateCategoryRequest,
   Category,
@@ -40,19 +40,43 @@ export default function CategoryForm({
     categoryName: "",
     type: AmountType.EXPENSE,
   });
+  const [initialData, setInitialData] = useState<CreateCategoryRequest>({
+    categoryName: "",
+    type: AmountType.EXPENSE,
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const { showSnackbar } = useSnackbar();
-  const { validateFields, validateField, getError, hasError } = useValidation();
+  const { validateFields, validateField, getError, hasError, clearAllErrors } =
+    useValidation();
 
   useEffect(() => {
-    if (category) {
-      setCategoryData({
-        categoryName: category.categoryName,
-        type: category.type,
-      });
+    if (open) {
+      clearAllErrors();
+      setError("");
+
+      if (category) {
+        const data = {
+          categoryName: category.categoryName,
+          type: category.type,
+        };
+        setCategoryData(data);
+        setInitialData(data);
+      } else {
+        const data = {
+          categoryName: "",
+          type: AmountType.EXPENSE,
+        };
+        setCategoryData(data);
+        setInitialData(data);
+      }
     }
-  }, [category]);
+  }, [open, category, clearAllErrors]);
+
+  const isDirty = useMemo(
+    () => JSON.stringify(categoryData) !== JSON.stringify(initialData),
+    [categoryData, initialData]
+  );
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -160,7 +184,11 @@ export default function CategoryForm({
         </DialogContent>
         <DialogActions>
           <Button onClick={onClose}>Cancel</Button>
-          <Button type="submit" variant="contained" disabled={loading}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || (category && !isDirty)}
+          >
             {loading ? "Saving..." : "Save"}
           </Button>
         </DialogActions>

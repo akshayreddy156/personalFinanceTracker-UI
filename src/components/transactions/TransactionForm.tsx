@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import type { Category } from "../../types/category.types";
 import { AmountType } from "../../types/enums";
 import type {
@@ -47,6 +47,13 @@ export default function TransactionForm({
       date: new Date().toISOString().split("T")[0],
       description: "",
     });
+  const [initialData, setInitialData] = useState<CreateTransactionRequest>({
+    type: AmountType.EXPENSE,
+    amount: 0,
+    categoryId: 0,
+    date: new Date().toISOString().split("T")[0],
+    description: "",
+  });
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -76,25 +83,35 @@ export default function TransactionForm({
         // Format date from ISO 8601 to YYYY-MM-DD for date input
         const formattedDate = transaction.date.split("T")[0];
 
-        setTransactionData({
+        const data = {
           type: transaction.type,
           amount: transaction.amount,
           categoryId: transaction.category.categoryId,
           date: formattedDate,
           description: transaction.description || "",
-        });
+        };
+        setTransactionData(data);
+        setInitialData(data);
       } else {
         // Reset form data for new transaction
-        setTransactionData({
+        const data = {
           type: AmountType.EXPENSE,
           amount: 0,
           categoryId: 0,
           date: new Date().toISOString().split("T")[0],
           description: "",
-        });
+        };
+        setTransactionData(data);
+        setInitialData(data);
       }
     }
   }, [open, transaction, clearAllErrors]);
+
+  // Check if form has been modified
+  const isDirty = useMemo(
+    () => JSON.stringify(transactionData) !== JSON.stringify(initialData),
+    [transactionData, initialData]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -314,7 +331,11 @@ export default function TransactionForm({
           <Button onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" variant="contained" disabled={loading}>
+          <Button
+            type="submit"
+            variant="contained"
+            disabled={loading || (transaction && !isDirty)}
+          >
             {loading ? "Saving..." : transaction ? "Update" : "Add Transaction"}
           </Button>
         </DialogActions>
