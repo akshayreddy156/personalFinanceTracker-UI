@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useAuth } from "../context/AuthProvider";
 import { Box, Button, Container, Typography, Grid } from "@mui/material";
 import homePageSvg from "../assets/home.svg";
+import { Typewriter } from "react-simple-typewriter";
 
 export default function HomePage() {
   const { user } = useAuth();
@@ -43,7 +44,14 @@ export default function HomePage() {
                     fontSize: { xs: "3rem", md: "3.7rem" },
                   }}
                 >
-                  Transactions
+                  <Typewriter
+                    words={["Transactions", "Expenses", "Income", "Savings"]}
+                    loop={0}
+                    cursor
+                    typeSpeed={70}
+                    deleteSpeed={50}
+                    delaySpeed={2000}
+                  />
                 </Box>
               </Typography>
               {!user ? (
