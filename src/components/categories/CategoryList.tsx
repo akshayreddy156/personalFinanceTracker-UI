@@ -27,11 +27,16 @@ export default function CategoryList({ categories, onEdit, onDelete }: Props) {
     ) {
       try {
         const response = await categoryService.deleteCategory(id);
-        showSnackbar(response.message || "Category deleted successfully", "success");
+        showSnackbar(
+          response.message || "Category deleted successfully",
+          "success"
+        );
         onDelete();
       } catch (error: any) {
         console.error("Failed to delete category:", error);
-        const errorMessage = error.response?.data?.errors?.exception || "Cannot delete category. It may be in use by transactions.";
+        const errorMessage =
+          error.response?.data?.error ||
+          "Cannot delete category. It may be in use by transactions.";
         showSnackbar(errorMessage, "error");
       }
     }

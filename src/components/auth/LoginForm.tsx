@@ -51,8 +51,7 @@ export default function LoginForm() {
       showSnackbar(message, "success");
       navigate("/dashboard");
     } catch (error: any) {
-      const errorMessage =
-        error.response?.data?.errors?.exception || "Failed to log in";
+      const errorMessage = error.response?.data?.error || "Failed to log in";
       setError(errorMessage);
     } finally {
       setLoading(false);

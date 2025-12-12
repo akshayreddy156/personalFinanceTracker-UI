@@ -116,7 +116,7 @@ export default function CategoryForm({
     } catch (error: any) {
       console.error("Failed to submit category", error);
       const errorMessage =
-        error.response?.data?.errors?.exception ||
+        error.response?.data?.error ||
         "Failed to submit category. Please try again.";
       setError(errorMessage);
       showSnackbar(errorMessage, "error");

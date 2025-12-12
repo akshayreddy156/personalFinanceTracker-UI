@@ -175,7 +175,7 @@ export default function TransactionForm({
     } catch (error: any) {
       console.error("Failed to submit transaction", error);
       const errorMessage =
-        error.response?.data?.errors?.exception ||
+        error.response?.data?.error ||
         "Failed to submit transaction. Please try again.";
       setError(errorMessage);
       showSnackbar(errorMessage, "error");
