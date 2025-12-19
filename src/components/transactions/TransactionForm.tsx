@@ -112,6 +112,10 @@ export default function TransactionForm({
     () => JSON.stringify(transactionData) !== JSON.stringify(initialData),
     [transactionData, initialData]
   );
+  const filteredCategories = useMemo(
+    () => categories.filter((cat) => cat.type === transactionData.type),
+    [categories, transactionData.type]
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,18 +201,20 @@ export default function TransactionForm({
             </Alert>
           )}
 
-          {/* Transaction Type Radio Buttons */}
           <FormControl component="fieldset" sx={{ mb: 2 }}>
             <FormLabel component="legend">Type</FormLabel>
             <RadioGroup
               row
               value={transactionData.type}
-              onChange={(e) =>
+              onChange={(e) => {
+                const newType = e.target.value as AmountType;
                 setTransactionData({
                   ...transactionData,
-                  type: e.target.value as AmountType,
-                })
-              }
+                  type: newType,
+                  categoryId: 0,
+                });
+                clearAllErrors();
+              }}
             >
               <FormControlLabel
                 value={AmountType.INCOME}
@@ -223,12 +229,10 @@ export default function TransactionForm({
             </RadioGroup>
           </FormControl>
           <Autocomplete
-            options={categories}
-            getOptionLabel={(option) =>
-              `${option.categoryName} - ${option.type}`
-            }
+            options={filteredCategories}
+            getOptionLabel={(option) => `${option.categoryName}`}
             value={
-              categories.find(
+              filteredCategories.find(
                 (cat) => cat.categoryId === transactionData.categoryId
               ) || null
             }
